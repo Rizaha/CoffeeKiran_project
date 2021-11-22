@@ -165,13 +165,13 @@ def select_jumlah(antrian):
   
 	return jumlah
 
-def select_jumlah_menu(menu_id):
+def select_jumlah_menu(order_id,menu_id):
 	connection = app.connect()
 	cursor = connection.cursor()
 	query = 'select jumlah\
 			from orders\
-			where order_id=%s'
-	cursor.execute(query,(menu_id,),)
-	jumlah = cursor.fetchone()
+			where order_id=%s and menu_id=%s'
+	cursor.execute(query,(order_id,menu_id))
+	jumlah = cursor.fetchone()[0]
   
 	return jumlah

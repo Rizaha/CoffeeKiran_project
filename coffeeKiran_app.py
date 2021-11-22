@@ -501,7 +501,7 @@ def update_pesanan():
             return "cek nomor antrian", 400
         
         # logger.debug((int(antrian),))
-        # logger.debug(func.semua_antrian())
+        logger.debug(func.select_jumlah_menu(antrian,menu_id))
         if (int(antrian),) in func.order_selesai():
             return "order tidak bisa diupdate karena sudah selesai dibuat", 400
 
@@ -512,7 +512,7 @@ def update_pesanan():
             query = 'UPDATE public.menus\
 			        SET  stock = ((select stock from menus where id = %s)+%s-%s)\
 			        WHERE id=%s;'
-            cursor.execute(query,(menu_id,func.select_jumlah_menu(menu_id),jumlah,menu_id))
+            cursor.execute(query,(menu_id,str(func.select_jumlah_menu(antrian,menu_id)),jumlah,menu_id))
             connection.commit()
             
 
