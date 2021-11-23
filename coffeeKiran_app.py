@@ -76,7 +76,7 @@ def signup():
         cursor.execute(postgreSQL_select_Query, (uname, mail, pasw))
         connection.commit()
         return jsonify({
-            'message' : 'Selamat datang di Coffee Kiran'
+            'message' : 'selamat datang di Coffee Kiran'
         }), 201
     except:
         return jsonify({
@@ -171,16 +171,17 @@ def update_data_menu():
         name = data["nama"]
         deskripsi = data["deskripsi"]
         price = data["harga"]
-
-        postgreSQL_select_Query = "UPDATE public.menus\
-	                                SET name=%s, description=%s, price=%s\
-	                                WHERE id = %s;"
+        logger.debug(menu_id)
+        postgreSQL_select_Query = 'UPDATE public.menus\
+	                            SET  name=%s,  description=%s, price=%s\
+	                            WHERE id = %s;'
         try:
-            a = cursor.execute(postgreSQL_select_Query,(name,deskripsi,price,menu_id))
-            connection.commit()
-            if a == None:
+            if (int(menu_id),) not in func.daftar_menu_id():
                 return "id menu tidak ditemukan", 400
+
             else :
+                cursor.execute(postgreSQL_select_Query,(name,deskripsi,price,menu_id))
+                connection.commit()
                 return jsonify({
                     'report' : 'success',
                     'message' : 'menu sudah terupdate !'
@@ -205,17 +206,16 @@ def update_stok():
         data = rq.json
 
         menu_id = data["menu_id"]
-        stock = data["stock"]
-
-        postgreSQL_select_Query = "UPDATE public.menus\
+        stock = data["stok"]
+        if (int(menu_id),) not in func.daftar_menu_id():
+                return "id menu tidak ditemukan", 400
+        
+        else:
+            postgreSQL_select_Query = "UPDATE public.menus\
 	                                SET stock=%s\
 	                                WHERE id = %s;"
-        a = cursor.execute(postgreSQL_select_Query,(stock,menu_id))
-        connection.commit()
-        
-        if a == None:
-            return "id menu tidak ditemukan", 400
-        else:
+            cursor.execute(postgreSQL_select_Query,(stock,menu_id))
+            connection.commit()
             return jsonify({
                 'report' : 'success',
                 'message' : 'stock sudah terupdate !'

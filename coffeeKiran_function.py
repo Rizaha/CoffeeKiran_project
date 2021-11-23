@@ -85,7 +85,7 @@ def menu(menu_id):
 def totalHarga(menu_id,jumlah,antri):
 	connection = app.connect()
 	cursor = connection.cursor()
-	query = 'select sum(price)+((select price from menus where id =%s)*%s)\
+	query = 'select (select price from menus where id =%s)*%s\
 			from menus as m\
 			join orders as o\
 			on m.id = o.menu_id\
@@ -175,3 +175,13 @@ def select_jumlah_menu(order_id,menu_id):
 	jumlah = cursor.fetchone()[0]
   
 	return jumlah
+
+def daftar_menu_id():
+	connection = app.connect()
+	cursor = connection.cursor()
+	query = 'select id\
+			from menus'
+	cursor.execute(query)
+	id = cursor.fetchall()
+  
+	return id
