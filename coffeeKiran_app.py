@@ -76,14 +76,7 @@ def signup():
         cursor.execute(postgreSQL_select_Query, (uname, mail, pasw))
         connection.commit()
         return jsonify({
-            'message' : 'Selamat datang di Coffee Kiran, silahkan lihat tutorial pemesanan',
-            'tutorial_langkah1' : 'ambil antrian di .... ',
-            'tutorial_langkah2' : 'lihat menu di .... ',
-            'tutorial_langkah3' : 'pesan di .... ',
-            'tutorial_langkah4' : 'hapus pesanan di ...',
-            'tutorial_langkah5' : 'tambah pesanan di ... ',
-            'tutorial_langkah6' : 'cek pesanan di ...',
-            'tutorial_langkah7' : 'upadte user di ...'
+            'message' : 'Selamat datang di Coffee Kiran'
         }), 201
     except:
         return jsonify({
@@ -186,7 +179,7 @@ def update_data_menu():
             a = cursor.execute(postgreSQL_select_Query,(name,deskripsi,price,menu_id))
             connection.commit()
             if a == None:
-                return "ID menu tidak ditemukan", 400
+                return "id menu tidak ditemukan", 400
             else :
                 return jsonify({
                     'report' : 'success',
@@ -221,7 +214,7 @@ def update_stok():
         connection.commit()
         
         if a == None:
-            return "ID menu tidak ditemukan", 400
+            return "id menu tidak ditemukan", 400
         else:
             return jsonify({
                 'report' : 'success',
@@ -252,11 +245,11 @@ def cek_pesanan():
         orders = cursor.fetchall()
         for row in orders:
             arr.append({
-                "1_Username": str(row[0]),
-                "2_oerderID" : str(row[1]),
-                "3_menuID": str(row[2]),
-                "4_jumlah": str(row[3]),
-                "5_isComplete": str(row[4])
+                "username": str(row[0]),
+                "order_id" : str(row[1]),
+                "menu_id": str(row[2]),
+                "jumlah": str(row[3]),
+                "is_complete": str(row[4])
             })
         return jsonify(arr)
 
@@ -296,11 +289,11 @@ def list_menu():
     menus = cursor.fetchall()
     for row in menus:
             arr.append({
-                "1_Nama": str(row[0]),
-                "2_id" : str(row[1]),
-                "3_Stok": str(row[2]),
-                "4_Deskripsi": str(row[3]),
-                "5_Harga": str(row[4])
+                "nama": str(row[0]),
+                "id" : str(row[1]),
+                "stok": str(row[2]),
+                "deskripsi": str(row[3]),
+                "harga": str(row[4])
             })
     return jsonify(arr)
 
@@ -576,7 +569,7 @@ def top_order():
         arr.append({
             "user_id = ": str(row[0]),
             "username = ": str(row[1]),
-            "jumlah pesanan = ": str(row[2])
+            "jumlah_pesanan = ": str(row[2])
         })
 
     return jsonify(arr)
@@ -601,7 +594,7 @@ def pop_menu():
         arr.append({
             "menu_id = ": str(row[0]),
             "menu_name = ": str(row[1]),
-            "total pesanan = ": str(row[2])
+            "total_pesanan = ": str(row[2])
         })
 
     return jsonify(arr)
