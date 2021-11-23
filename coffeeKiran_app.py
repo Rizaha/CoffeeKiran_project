@@ -529,7 +529,7 @@ def search_menu():
 
     connection = connect()
     cursor = connection.cursor()
-    postgreSQL_select_Query = f"SELECT id, name, stock, price FROM menus WHERE name LIKE '%{menu}%'"
+    postgreSQL_select_Query = f"SELECT id, name, stock, price FROM menus WHERE name ILIKE '%{menu}%'"
 
     cursor.execute(postgreSQL_select_Query)
     menus = cursor.fetchall()
