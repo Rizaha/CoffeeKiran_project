@@ -1,10 +1,3 @@
-# from loguru import logger
-import psycopg2
-# from flask import Flask
-# from flask import request as rq
-# from flask import jsonify
-# from werkzeug.exceptions import Unauthorized
-# from logging import exception
 import coffeeKiran_app as app
 
 def f_username(username):
