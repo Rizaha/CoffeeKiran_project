@@ -449,7 +449,9 @@ def cek_pesanan_user():
 
         if str(func.user_id(username)) != str(func.select_user(antrian)):
             return "cek nomor antrian", 400
-
+        logger.debug(str(func.cek_pesanan(antrian)))
+        if str(func.cek_pesanan(antrian)) != str(False):
+            return "tidak ada pesanan",200
         else :
             postgreSQL_select_Query = "select o.user_id, m.id, m.name, o.jumlah\
                                         from order_lists as ol\
@@ -525,7 +527,7 @@ def update_pesanan():
 def search_menu():
     arr = []
     menu = rq.args.get('menu')
-    logger.debug(menu)
+    # logger.debug(menu)
 
     connection = connect()
     cursor = connection.cursor()
@@ -533,7 +535,7 @@ def search_menu():
 
     cursor.execute(postgreSQL_select_Query)
     menus = cursor.fetchall()
-    logger.debug(menus)
+    # logger.debug(menus)
     if menus == []:
         return "Menu tidak ditemukan"
     else:

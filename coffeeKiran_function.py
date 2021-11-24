@@ -178,3 +178,14 @@ def daftar_menu_id():
 	id = cursor.fetchall()
   
 	return id
+
+def cek_pesanan(antrian):
+	connection = app.connect()
+	cursor = connection.cursor()
+	query = 'select is_complete\
+			from order_lists\
+			where order_id = %s'
+	cursor.execute(query,(antrian,),)
+	id = cursor.fetchone()[0]
+  
+	return id
