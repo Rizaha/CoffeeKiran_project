@@ -75,15 +75,12 @@ def menu(menu_id):
 
 	return menu
 
-def totalHarga(menu_id,jumlah,antri):
+def totalHarga(menu_id,jumlah):
 	connection = app.connect()
 	cursor = connection.cursor()
 	query = 'select (select price from menus where id =%s)*%s\
-			from menus as m\
-			join orders as o\
-			on m.id = o.menu_id\
-			where order_id=%s'
-	cursor.execute(query, (menu_id,jumlah,antri))
+			from menus'
+	cursor.execute(query, (menu_id,jumlah))
 	total = cursor.fetchone()[0]
 
 	return total
@@ -132,15 +129,13 @@ def select_user(antrian):
   
 	return user_id
 
-def select_menu_order(antrian):
+def select_menu_order(user_id):
 	connection = app.connect()
 	cursor = connection.cursor()
-	query = 'select o.menu_id\
-			from order_lists as ol\
-			join orders as o\
-			on ol.order_id = o.order_id\
-			where ol.order_id=%s'
-	cursor.execute(query,(antrian,),)
+	query = 'select menu_id\
+			from orders\
+			where user_id=%s and order_id is null'
+	cursor.execute(query,(user_id,),)
 	menu_id = cursor.fetchall()
   
 	return menu_id
@@ -158,13 +153,13 @@ def select_jumlah(antrian):
   
 	return jumlah
 
-def select_jumlah_menu(order_id,menu_id):
+def select_jumlah_menu(user_id,menu_id):
 	connection = app.connect()
 	cursor = connection.cursor()
 	query = 'select jumlah\
 			from orders\
-			where order_id=%s and menu_id=%s'
-	cursor.execute(query,(order_id,menu_id))
+			where user_id=%s and menu_id=%s and order_id is null'
+	cursor.execute(query,(user_id,menu_id))
 	jumlah = cursor.fetchone()[0]
   
 	return jumlah
@@ -179,10 +174,21 @@ def daftar_menu_id():
   
 	return id
 
-def cek_pesanan(antrian):
+def cek_pesanan_masuk(user_id):
 	connection = app.connect()
 	cursor = connection.cursor()
 	query = 'select is_complete\
+			from order_lists\
+			where user_id = %s'
+	cursor.execute(query,(user_id,),)
+	id = cursor.fetchone()[0]
+  
+	return id
+
+def cek_is_confirm(antrian):
+	connection = app.connect()
+	cursor = connection.cursor()
+	query = 'select is_confirmed\
 			from order_lists\
 			where order_id = %s'
 	cursor.execute(query,(antrian,),)
