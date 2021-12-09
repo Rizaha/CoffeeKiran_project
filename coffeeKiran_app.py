@@ -5,6 +5,12 @@ from flask import request as rq
 from flask import jsonify
 from werkzeug.exceptions import Unauthorized
 import coffeeKiran_function as func
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
+# cors = CORS(app, resources={r"/coffeekiran/*" : {"origins":"http://127.0.0.1:5000"}})
+
 
 def connect():
     koneksi = psycopg2.connect(user="postgres",
@@ -54,8 +60,14 @@ def isadmin():
     else :
         return True
 
+@app.route('/coffeekiran/login', methods=['GET'])
+def masuk():
+    username = rq.authorization["username"]
 
-app = Flask(__name__)
+    if not login():
+        return "gagal login", 401
+    else:
+        return f'Selamat datang kak {username}'
 
 @app.route('/coffeekiran/signup', methods=['POST'])
 def signup():
@@ -239,7 +251,7 @@ def cek_pesanan():
                                 on ol.order_id = o.order_id\
                                 join users as u\
                                 on u.id=ol.user_id\
-                                where ol.is_complete = false and ol.is_confirmed = true\
+                                where ol.is_complete = false\
                                 order by order_at"
         cursor.execute(postgreSQL_select_Query)
         orders = cursor.fetchall()
@@ -331,12 +343,13 @@ def pesan():
     connection = connect()
     cursor = connection.cursor()
 
-    data = rq.json
+    
     # antrian = rq.args.get('no_antrian')
     if not login():
         return "gagal login", 401
 
     else:
+        data = rq.json
         menu_id = data["menu_id"]
         jumlah = data["jumlah"]
 
@@ -354,6 +367,12 @@ def pesan():
         #         'error' : 'bad request',
         #         'message' : 'pegawai sedang sibuk'
         #     }), 400
+
+        logger.debug((int(menu_id),))
+        logger.debug(func.daftar_menu_id())
+
+        if (int(menu_id),) not in func.daftar_menu_id():
+            return 'menu tidak ditemukan', 400
 
         if (func.stock(menu_id)[0]== None) or ((int(data["jumlah"]) > func.stock(menu_id)[0])):
             return jsonify({
@@ -383,53 +402,49 @@ def pesan():
                 })
 
 
-@app.route('/coffeekiran/user/cancel-pesanan', methods=['DELETE'])
+@app.route('/coffeekiran/user/hapus-pesanan', methods=['DELETE'])
 def cancel():
     connection = connect()
     cursor = connection.cursor()
 
-    antrian = rq.args.get('no_antrian')
+    data = rq.json
+    menu_id = data["menu_id"]
+
     if not login():
         return "gagal login", 401
 
     else:
         username = rq.authorization["username"]
-        antrian = rq.args.get('no_antrian')
+        # antrian = rq.args.get('no_antrian')
         # logger.debug(str(func.select_user(antrian)))
         # logger.debug(antrian)
-        if antrian == None:
-            return "harap masukan nomor antrian"
+        # if antrian == None:
+        #     return "harap masukan nomor antrian"
 
-        if str(func.user_id(username)) != str(func.select_user(antrian)):
-            return "cek nomor antrian", 400
+        # if str(func.user_id(username)) != str(func.select_user(antrian)):
+        #     return "cek nomor antrian", 400
         
         # logger.debug((int(antrian),))
         # logger.debug(func.semua_antrian())
-        if (int(antrian),) in func.order_selesai():
-            return "order tidak bisa dicancel karena sudah selesai dibuat", 400
+        # if (int(antrian),) in func.order_selesai():
+        #     return "order tidak bisa dicancel karena sudah selesai dibuat", 400
 
-        if (int(antrian),) not in func.semua_antrian():
-            return "antrian tidak ditemukan", 400
+        # if (int(antrian),) not in func.semua_antrian():
+        #     return "antrian tidak ditemukan", 400
 
-        if str(func.cek_is_confirm(antrian)) == True:
-            return f"pesanan ke-{antrian} tidak bisa dicancel, karena sudah dikonfirmasi",400
-        
+        # if str(func.cek_is_confirm(antrian)) == True:
+        #     return f"pesanan ke-{antrian} tidak bisa dicancel, karena sudah dikonfirmasi",400
+        if func.select_menu_order(str(func.user_id(username))) is None:
+            return "tidak ada order", 400
+
         else:
-            logger.debug(func.select_menu_order(antrian))
-            logger.debug(func.select_jumlah(antrian))
-
-            for i in func.select_menu_order(antrian):
-                for j in func.select_jumlah(antrian):
-                    postgreSQL_select_Query = "UPDATE public.menus\
-                                                SET stock=(select stock from menus where id = %s) + %s\
-                                                WHERE id=%s;"
-                    cursor.execute(postgreSQL_select_Query, (i,j,i))
-                    connection.commit()
-                    break
+            logger.debug(menu_id)
+            logger.debug(str(func.user_id(username)))
+            logger.debug(func.select_jumlah_menu(str(func.user_id(username)),menu_id))
 
             postgreSQL_select_Query = "DELETE FROM public.orders\
-	                                    WHERE user_id=%s and order_id is null;"
-            cursor.execute(postgreSQL_select_Query, (str(func.user_id(username)),),)
+	                                    WHERE user_id=%s and menu_id=%s and order_id isnull;"
+            cursor.execute(postgreSQL_select_Query, (str(func.user_id(username)), menu_id))
             connection.commit()
             return "order canceled", 201
 
@@ -465,7 +480,7 @@ def cek_pesanan_user():
         cursor.execute(postgreSQL_select_Query,(str(func.user_id(username)),),)
         orders=cursor.fetchall()
         if orders == []:
-            return "tidak ada pesanan aktif"
+            return "tidak ada pesanan aktif", 400
         else:
             for row in orders:
                 arr.append({
@@ -474,7 +489,7 @@ def cek_pesanan_user():
                     "menu_nama": str(row[2]),
                     "jumlah": str(row[3])
                 })
-            return jsonify(arr)
+            return jsonify(arr), 200
 
 
 @app.route('/coffeekiran/user/update-keranjang', methods=['PUT'])
@@ -509,7 +524,7 @@ def update_pesanan():
         # if (int(antrian),) not in func.semua_antrian():
         #     return "antrian tidak ditemukan", 400
         if (int(menu_id),) not in func.select_menu_order(str(func.user_id(username))):
-            return 'menu tidak ditemukan harap pesan di menu pesan'
+            return 'menu tidak ditemukan harap pesan di menu pesan', 400
         
         else:
             query = 'UPDATE public.menus\
@@ -528,7 +543,7 @@ def update_pesanan():
             return jsonify({
                     "success": "update selesai",
                     "message" : "harap cek pesanan lagi"
-                })
+                }), 200
 
 
 @app.route('/coffeekiran/user/confirm-pesanan', methods=['POST'])
@@ -538,52 +553,43 @@ def confirm():
     cursor = connection.cursor()
 
     username = rq.authorization['username']
-    antrian = rq.args.get('no_antrian')
-
-    if antrian == None:
-            return "harap masukan nomor antrian"
-
-    if str(func.user_id(username)) != str(func.select_user(antrian)):
-        return "cek nomor antrian", 400
-
-    if str(func.cek_is_confirm(antrian)) == True:
-        return "order sudah diconfirm"
-    # logger.debug((int(antrian),))
-
-    if (int(antrian),) not in func.semua_antrian():
-        return "antrian tidak ditemukan", 400
-
+    postgreSQL_select_Query = "select o.user_id, m.id, m.name, o.jumlah\
+                                    from orders as o\
+                                    join menus as m\
+                                    on m.id = o.menu_id\
+                                    where o.user_id = %s and o.order_id is null"
+    cursor.execute(postgreSQL_select_Query,(str(func.user_id(username)),),)
+    orders=cursor.fetchall()
+    if orders == []:
+        return "tidak ada pesanan aktif",400
     else:
-        query = 'UPDATE public.order_lists\
-                SET  is_confirmed = true\
-                WHERE id=%s;'
-        cursor.execute(query,(antrian,),)
+        for i in func.select_menu_order(str(func.user_id(username))):
+            postgreSQL_select_Query = "UPDATE public.menus\
+                                        SET stock=(select stock from menus where id=%s)-(select jumlah from orders where user_id=%s and menu_id=%s and order_id isnull)\
+                                        WHERE id=%s;"
+            cursor.execute(postgreSQL_select_Query, (i,str(func.user_id(username)),i,i))
+            connection.commit()
+        
+        query = 'UPDATE public.orders \
+            SET order_id=(select order_id from order_lists order by order_id desc limit 1)+1 \
+            WHERE user_id = %s and order_id isnull;'
+        cursor.execute(query,(func.user_id(username),),)
         connection.commit()
 
-        postgreSQL_select_Query = "select o.user_id, m.id, m.name, o.jumlah, ol.is_confirmed, ol.order_id \
-                                        from order_lists as ol\
-                                        join orders as o\
-                                        on ol.user_id=o.user_id\
-                                        join menus as m\
-                                        on m.id = o.menu_id\
-                                        where ol.user_id = %s and ol.is_complete = false"
-        cursor.execute(postgreSQL_select_Query,(str(func.user_id(username)),),)
-        orders=cursor.fetchall()
-        if orders == None:
-            return "tidak ada pesanan aktif"
-        else:
-            for row in orders:
+        query2 = 'INSERT INTO public.order_lists(\
+                    user_id)\
+                    VALUES (%s);'
+        cursor.execute(query2,(func.user_id(username),),)
+        connection.commit()
+        for row in orders:
                 arr.append({
                     "user_id": str(row[0]),
                     "menu_id" : str(row[1]),
                     "menu_nama": str(row[2]),
-                    "jumlah": str(row[3]),
-                    "is_confirmed" : str(row[4]),
-                    "order_id": str(row[5])
+                    "jumlah": str(row[3])
                 })
-            arr.append()
-            return jsonify(arr)
-
+        return jsonify(arr), 200
+       
 
 @app.route('/coffeekiran/search', methods=['GET'])
 def search_menu():

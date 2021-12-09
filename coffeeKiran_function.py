@@ -140,20 +140,18 @@ def select_menu_order(user_id):
   
 	return menu_id
 
-def select_jumlah(antrian):
-	connection = app.connect()
-	cursor = connection.cursor()
-	query = 'select o.jumlah\
-			from order_lists as ol\
-			join orders as o\
-			on ol.order_id = o.order_id\
-			where ol.order_id=%s'
-	cursor.execute(query,(antrian,),)
-	jumlah = cursor.fetchall()
+# def select_jumlah(user_id, menu_id):
+# 	connection = app.connect()
+# 	cursor = connection.cursor()
+# 	query = 'select jumlah\
+# 			from orders\
+# 			where user_id=%s and menu_id=%s and order_id isnull'
+# 	cursor.execute(query,(user_id, menu_id))
+# 	jumlah = cursor.fetchall()
   
-	return jumlah
+# 	return jumlah
 
-def select_jumlah_menu(user_id,menu_id):
+def select_jumlah_menu(user_id, menu_id):
 	connection = app.connect()
 	cursor = connection.cursor()
 	query = 'select jumlah\
