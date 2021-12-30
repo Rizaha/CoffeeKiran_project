@@ -193,3 +193,9 @@ def cek_is_confirm(antrian):
 	id = cursor.fetchone()[0]
   
 	return id
+
+def orderan(keterangan):
+	if keterangan == True:
+		return "Selesai"
+	else:
+		return "Dalam Proses"

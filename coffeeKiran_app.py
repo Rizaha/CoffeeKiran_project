@@ -6,6 +6,7 @@ from flask import jsonify
 from werkzeug.exceptions import Unauthorized
 import coffeeKiran_function as func
 from flask_cors import CORS
+from flask_cors import cross_origin
 
 app = Flask(__name__)
 CORS(app)
@@ -69,6 +70,19 @@ def masuk():
     else:
         return f'Selamat datang kak {username}'
 
+
+@app.route('/coffeekiran/admin/login', methods=['GET'])
+def masukadmin():
+    username = rq.authorization["username"]
+
+    if not login():
+        return "gagal login", 401
+    if not isadmin():
+        return "bukan admin", 401
+    else:
+        return f'Selamat datang kak {username}'
+
+
 @app.route('/coffeekiran/signup', methods=['POST'])
 def signup():
     connection = connect()
@@ -97,6 +111,78 @@ def signup():
         }), 400
 
 
+@app.route('/coffeekiran/user/profile', methods=['GET'])
+def getprofile():
+    if not login():
+        return "gagal login", 401
+    else:
+        arr=[]
+        connection = connect()
+        cursor = connection.cursor()
+
+        username = rq.authorization["username"]
+
+        postgreSQL_select_Query = "select *\
+	                                from users\
+	                                WHERE username = %s;"
+
+        cursor.execute(postgreSQL_select_Query,(username,),)
+
+        profile = cursor.fetchall()
+        for row in profile:
+            arr.append({
+                "id": str(row[0]),
+                "username" : str(row[1]),
+                "email": str(row[2]),
+                "password": str(row[3]),
+                "is_admin": str(row[4]),
+                "name": str(row[5]),
+                "addres": str(row[6]),
+                "contact": str(row[7])
+            })
+        return jsonify(arr)
+
+
+@app.route('/coffeekiran/user/update-profile', methods=['POST'])
+def update_profil():
+    if not login():
+        return "gagal login", 401
+    else:
+        connection = connect()
+        cursor = connection.cursor()
+        data = rq.json
+
+        mail = data["email"]
+        nama = data["nama"]
+        contact = data["kontak"]
+        address = data["alamat"]
+        
+        username = rq.authorization["username"]
+        logger.debug(nama)
+        logger.debug(mail)
+        logger.debug(contact)
+        logger.debug(address)
+        postgreSQL_select_Query = "UPDATE public.users\
+	                                SET name=%s, email=%s, contact=%s, addres=%s\
+	                                WHERE username = %s;"
+
+        
+        try:
+            cursor.execute(postgreSQL_select_Query,(nama,mail,contact,address,username))
+            connection.commit()
+
+            return jsonify({
+                'report' : 'success',
+                'message' : 'username sudah terupdate !'
+            }), 200
+
+        except:
+            return jsonify({
+                'error' : 'bad request',
+                'message' : 'username atau email sudah terdaftar'
+            }), 400
+
+
 @app.route('/coffeekiran/user/update-user', methods=['PUT'])
 def update_user():
     if not login():
@@ -106,23 +192,24 @@ def update_user():
         cursor = connection.cursor()
         data = rq.json
 
-        mail = data["email"]
         uname = data["username"]
         pasw = data["password"]
         
         username = rq.authorization["username"]
 
         postgreSQL_select_Query = "UPDATE public.users\
-	                                SET username=%s, email=%s, password=%s\
+	                                SET username=%s, password=%s\
 	                                WHERE username = %s;"
+
+        
         try:
-            cursor.execute(postgreSQL_select_Query,(uname,mail,pasw,username))
+            cursor.execute(postgreSQL_select_Query,(uname,pasw,username))
             connection.commit()
 
             return jsonify({
                 'report' : 'success',
                 'message' : 'username sudah terupdate !'
-            }), 400
+            }), 200
 
         except:
             return jsonify({
@@ -134,7 +221,7 @@ def update_user():
 @app.route('/coffeekiran/admin/addmenu', methods=['POST'])
 def addmenu():
     if not login() :
-        return"cek admin"
+        return"cek admin", 401
     if not isadmin():
         return "anda bukan admin", 401
     else:
@@ -146,20 +233,23 @@ def addmenu():
         deskripsi = data["deskripsi"]
         stock = data["stok"]
         price = data["harga"]
+        pict = data["gambar"]
+        type = data["tipe"]
+
         logger.debug(price)
         postgreSQL_select_Query = "INSERT INTO public.menus(\
-                            name, stock, description, price)\
-                            VALUES (%s, %s, %s, %s);"
+                            name, stock, description, price, type, picture)\
+                            VALUES (%s, %s, %s, %s, %s, %s);"
 
         try:
-            a = cursor.execute(postgreSQL_select_Query,(name,stock,deskripsi,price))
+            a = cursor.execute(postgreSQL_select_Query,(name,stock,deskripsi,price,type,pict))
             logger.debug(a)
             connection.commit()
 
             return jsonify({
                 'report' : 'success',
                 'message' : 'menu sudah ditambahkan !'
-            }), 201
+            }), 200
 
         except:
             return jsonify({
@@ -183,16 +273,19 @@ def update_data_menu():
         name = data["nama"]
         deskripsi = data["deskripsi"]
         price = data["harga"]
+        picture = data["gambar"]
+        type = data["tipe"]
+
         logger.debug(menu_id)
         postgreSQL_select_Query = 'UPDATE public.menus\
-	                            SET  name=%s,  description=%s, price=%s\
+	                            SET  name=%s,  description=%s, price=%s, picture=%s, type=%s\
 	                            WHERE id = %s;'
         try:
             if (int(menu_id),) not in func.daftar_menu_id():
                 return "id menu tidak ditemukan", 400
 
             else :
-                cursor.execute(postgreSQL_select_Query,(name,deskripsi,price,menu_id))
+                cursor.execute(postgreSQL_select_Query,(name,deskripsi,price,picture,type,menu_id))
                 connection.commit()
                 return jsonify({
                     'report' : 'success',
@@ -234,7 +327,7 @@ def update_stok():
             }), 201
 
 
-@app.route('/coffeekiran/admin/cek-pesanan', methods=['GET'])
+@app.route('/coffeekiran/admin/cek-pesanan', methods=['POST'])
 def cek_pesanan():
     if not login() :
         return"cek admin"
@@ -244,24 +337,87 @@ def cek_pesanan():
         arr=[]
         connection = connect()
         cursor = connection.cursor()
+        data = rq.json
 
-        postgreSQL_select_Query = "select  u.username, ol.order_id, o.menu_id, o.jumlah, ol.is_complete\
+        id = data["id"]
+
+        postgreSQL_select_Query = "select  u.username, ol.order_id, m.name, o.jumlah, ol.is_complete\
                                 from order_lists as ol\
                                 join orders as o\
                                 on ol.order_id = o.order_id\
                                 join users as u\
                                 on u.id=ol.user_id\
-                                where ol.is_complete = false\
+                                join menus as m\
+                                on m.id=o.menu_id\
+                                where ol.order_id=%s\
                                 order by order_at"
-        cursor.execute(postgreSQL_select_Query)
+        cursor.execute(postgreSQL_select_Query,(id,),)
         orders = cursor.fetchall()
         for row in orders:
             arr.append({
                 "username": str(row[0]),
                 "order_id" : str(row[1]),
-                "menu_id": str(row[2]),
+                "menu_nama": str(row[2]),
                 "jumlah": str(row[3]),
-                "is_complete": str(row[4])
+                "is_complete": func.orderan(row[4])
+            })
+        return jsonify(arr)
+
+
+@app.route('/coffeekiran/admin/semua-pesanan', methods=['GET'])
+def semua_pesanan():
+    if not login() :
+        return"cek admin"
+    if not isadmin():
+        return "anda bukan admin", 401
+    else:
+        arr=[]
+        connection = connect()
+        cursor = connection.cursor()
+
+        postgreSQL_select_Query = "select ol.order_id, u.name, ol.order_at, ol.is_complete\
+                                from order_lists as ol\
+                                join users as u\
+                                on ol.user_id = u.id\
+                                where ol.is_complete=true\
+                                order by ol.order_at desc"
+        cursor.execute(postgreSQL_select_Query)
+        orders = cursor.fetchall()
+        for row in orders:
+            arr.append({
+                "order_id": str(row[0]),
+                "nama" : str(row[1]),
+                "order_at": str(row[2]),
+                "is_complete": func.orderan(row[3])
+            })
+        return jsonify(arr)
+
+
+@app.route('/coffeekiran/admin/pesanan-masuk', methods=['GET'])
+def pesanan_masuk():
+    if not login() :
+        return"cek admin"
+    if not isadmin():
+        return "anda bukan admin", 401
+    else:
+        arr=[]
+        connection = connect()
+        cursor = connection.cursor()
+
+        postgreSQL_select_Query = "select ol.order_id, u.name, ol.order_at, ol.is_complete\
+                                from order_lists as ol\
+                                join users as u\
+                                on ol.user_id = u.id\
+                                where ol.is_complete=false\
+                                order by ol.order_at"
+        cursor.execute(postgreSQL_select_Query)
+        orders = cursor.fetchall()
+        for row in orders:
+            arr.append({
+                "order_id": str(row[0]),
+                "nama" : str(row[1]),
+                "order_at": str(row[2]),
+                "is_complete": func.orderan(row[3])
             })
         return jsonify(arr)
 
@@ -274,8 +430,8 @@ def ceklis_pesanan():
         return"cek admin"
     if not isadmin():
         return "anda bukan admin", 401
-    if str(func.cek_is_confirm(order_id)) == str(False):
-        return "user masih memesan"
+    # if str(func.cek_is_confirm(order_id)) == str(False):
+    #     return "user masih memesan"
     else:
         connection = connect()
         cursor = connection.cursor()
@@ -286,7 +442,9 @@ def ceklis_pesanan():
         cursor.execute(postgreSQL_select_Query,(True,order_id))
         connection.commit()
 
-        return f'order ke{order_id} sudah selesai'
+        return jsonify({
+            'message' : 'order confirmed'
+        }), 200
 
 
 @app.route('/coffeekiran/menu', methods=['GET'])
@@ -295,9 +453,9 @@ def list_menu():
     connection = connect()
     cursor = connection.cursor()
 
-    postgreSQL_select_Query = "select name, id, stock, description, price\
+    postgreSQL_select_Query = "select name, id, stock, description, price, type, picture\
                                 from menus\
-                                order by added_at"
+                                order by id"
 
     cursor.execute(postgreSQL_select_Query)
     menus = cursor.fetchall()
@@ -307,10 +465,39 @@ def list_menu():
                 "id" : str(row[1]),
                 "stok": str(row[2]),
                 "deskripsi": str(row[3]),
-                "harga": str(row[4])
+                "harga": str(row[4]),
+                "tipe" : str(row[5]),
+                "gambar": str(row[6])
             })
     return jsonify(arr)
 
+
+@app.route('/coffeekiran/get_menu', methods=['POST'])
+def get_menu():
+    arr=[]
+    connection = connect()
+    cursor = connection.cursor()
+    data = rq.json
+
+    id = data["id"]
+
+    postgreSQL_select_Query = "select name, id, stock, description, price, picture\
+                                from menus\
+                                where id = %s\
+                                order by id"
+
+    cursor.execute(postgreSQL_select_Query,(id,),)
+    menus = cursor.fetchall()
+    for row in menus:
+            arr.append({
+                "nama": str(row[0]),
+                "id" : str(row[1]),
+                "stok": str(row[2]),
+                "deskripsi": str(row[3]),
+                "harga": str(row[4]),
+                "gambar": str(row[5])
+            })
+    return jsonify(arr)
 
 # @app.route('/coffeekiran/user/ambil-antrian', methods=['GET'])
 # def antrian():
@@ -362,12 +549,6 @@ def pesan():
         # if str(func.user_id(username)) != str(func.select_user(antrian)):
         #     return "cek nomor antrian", 400
 
-        # if func.antrian_count() > 10:
-        #     return jsonify({
-        #         'error' : 'bad request',
-        #         'message' : 'pegawai sedang sibuk'
-        #     }), 400
-
         logger.debug((int(menu_id),))
         logger.debug(func.daftar_menu_id())
 
@@ -380,6 +561,18 @@ def pesan():
                 'message' : 'menu out of stock, harap cek stok'
             }), 400
 
+        if (int(menu_id),) in func.select_menu_order(func.user_id(username)):
+            postgreSQL_select_Query = "UPDATE public.orders\
+	                                SET jumlah=(select jumlah from orders where user_id = %s and menu_id=%s and order_id isnull)+%s\
+	                                WHERE user_id = %s and menu_id = %s and order_id isnull;"
+            cursor.execute(postgreSQL_select_Query, (str(func.user_id(username)), menu_id, jumlah, str(func.user_id(username)), menu_id))
+            connection.commit()
+            
+            return jsonify({
+                    "username" : username,
+                    "menu": func.menu(menu_id),
+                    "total_harga": str(func.totalHarga(menu_id,jumlah))
+                })
         else :
             postgreSQL_select_Query = "INSERT INTO public.orders(\
 	                                user_id, menu_id, jumlah)\
@@ -446,7 +639,9 @@ def cancel():
 	                                    WHERE user_id=%s and menu_id=%s and order_id isnull;"
             cursor.execute(postgreSQL_select_Query, (str(func.user_id(username)), menu_id))
             connection.commit()
-            return "order canceled", 201
+            return jsonify({
+                    "message" : "order deleted"
+                }), 200
 
 
 @app.route('/coffeekiran/user/cek-keranjang', methods=['GET'])
@@ -476,7 +671,8 @@ def cek_pesanan_user():
                                     from orders as o\
                                     join menus as m\
                                     on m.id = o.menu_id\
-                                    where o.user_id = %s and o.order_id is null"
+                                    where o.user_id = %s and o.order_id is null\
+                                    order by m.id"
         cursor.execute(postgreSQL_select_Query,(str(func.user_id(username)),),)
         orders=cursor.fetchall()
         if orders == []:
@@ -560,6 +756,13 @@ def confirm():
                                     where o.user_id = %s and o.order_id is null"
     cursor.execute(postgreSQL_select_Query,(str(func.user_id(username)),),)
     orders=cursor.fetchall()
+
+    if func.antrian_count() > 10:
+            return jsonify({
+                'error' : 'bad request',
+                'message' : 'pegawai sedang sibuk'
+            }), 400
+
     if orders == []:
         return "tidak ada pesanan aktif",400
     else:
@@ -589,31 +792,226 @@ def confirm():
                     "jumlah": str(row[3])
                 })
         return jsonify(arr), 200
-       
 
-@app.route('/coffeekiran/search', methods=['GET'])
-def search_menu():
-    arr = []
-    menu = rq.args.get('menu')
-    # logger.debug(menu)
+
+@app.route('/coffeekiran/user/totalharga', methods=['GET'])
+def harga():
+    arr=[]
+
+    username=rq.authorization['username']
 
     connection = connect()
     cursor = connection.cursor()
-    postgreSQL_select_Query = f"SELECT id, name, stock, price FROM menus WHERE stock > 0 and name ILIKE '%{menu}%'"
+    postgreSQL_select_Query = "select sum(menus.price*orders.jumlah)\
+                            from orders\
+                            join menus\
+                            on menus.id=orders.menu_id\
+                            where orders.user_id = %s and orders.order_id isnull"
+    cursor.execute(postgreSQL_select_Query,(str(func.user_id(username)),),)
 
-    cursor.execute(postgreSQL_select_Query)
     menus = cursor.fetchall()
-    # logger.debug(menus)
+    if menus == []:
+        return "order tidak ditemukan"
+    else:
+        for row in menus:
+            arr.append({
+                "harga": str(row[0])
+            })
+
+        return jsonify(arr), 200
+
+
+@app.route('/coffeekiran/user/listharga', methods=['GET'])
+def listharga():
+    arr=[]
+
+    username=rq.authorization['username']
+
+    connection = connect()
+    cursor = connection.cursor()
+    postgreSQL_select_Query = "select menus.name, orders.jumlah, sum(menus.price*orders.jumlah)\
+                                from orders\
+                                join menus\
+                                on menus.id=orders.menu_id\
+                                where orders.user_id = %s and orders.order_id isnull\
+                                group by menus.name, orders.jumlah"
+    cursor.execute(postgreSQL_select_Query,(str(func.user_id(username)),),)
+
+    menus = cursor.fetchall()
+    if menus == []:
+        return "order tidak ditemukan"
+    else:
+        for row in menus:
+            arr.append({
+                "nama_menu": str(row[0]),
+                "jumlah" : str(row[1]),
+                "harga" : str(row[2])
+            })
+
+        return jsonify(arr), 200
+
+
+@app.route('/coffeekiran/user/orders', methods=['POST'])
+def orders():
+    arr=[]
+
+    username=rq.authorization['username']
+
+    data = rq.json
+
+    id = data["id"]
+
+    connection = connect()
+    cursor = connection.cursor()
+    postgreSQL_select_Query = "select  ol.order_at, u.username, ol.order_id, m.name, o.jumlah, ol.is_complete\
+                            from order_lists as ol\
+                            join orders as o\
+                            on ol.order_id = o.order_id\
+                            join users as u\
+                            on u.id=ol.user_id\
+                            join menus as m\
+                            on m.id = o.menu_id\
+                            where ol.user_id = %s and ol.order_id=%s\
+                            order by order_at desc"
+    cursor.execute(postgreSQL_select_Query,(str(func.user_id(username)), id))
+
+    menus = cursor.fetchall()
+    if menus == []:
+        return "order tidak ditemukan"
+    else:
+        for row in menus:
+            arr.append({
+                "order_at": str(row[0]),
+                "username" : str(row[1]),
+                "order_id" : str(row[2]),
+                "menu" : str(row[3]),
+                "jumlah" : str(row[4]),
+                "is_complete" : func.orderan(row[5])
+            })
+
+        return jsonify(arr), 200
+
+
+@app.route('/coffeekiran/user/riwayat-pesanan', methods=['GET'])
+def riwayat():
+    arr=[]
+
+    username=rq.authorization['username']
+
+    connection = connect()
+    cursor = connection.cursor()
+    postgreSQL_select_Query = "select ol.order_id, ol.order_at, ol.is_complete, sum(m.price*o.jumlah) as total\
+                            from order_lists as ol\
+                            join orders as o\
+                            on ol.order_id = o.order_id\
+                            join menus as m\
+                            on o.menu_id = m.id\
+                            where ol.user_id=%s and ol.is_complete=true\
+                            group by ol.order_id"
+    cursor.execute(postgreSQL_select_Query,(str(func.user_id(username)),),)
+
+    menus = cursor.fetchall()
+    if menus == []:
+        return "order tidak ditemukan"
+    else:
+        for row in menus:
+            arr.append({
+                "order_id": str(row[0]),
+                "order_at" : str(row[1]),
+                "status" : func.orderan(row[2]),
+                "total" : str(row[3])
+            })
+
+        return jsonify(arr), 200
+
+
+@app.route('/coffeekiran/user/pesanan-berjalan', methods=['GET'])
+def p_berjalan():
+    arr=[]
+
+    username=rq.authorization['username']
+
+    connection = connect()
+    cursor = connection.cursor()
+    postgreSQL_select_Query = "select ol.order_id, ol.order_at, ol.is_complete, sum(m.price*o.jumlah) as total\
+                            from order_lists as ol\
+                            join orders as o\
+                            on ol.order_id = o.order_id\
+                            join menus as m\
+                            on o.menu_id = m.id\
+                            where ol.user_id=%s and ol.is_complete=false\
+                            group by ol.order_id"
+    cursor.execute(postgreSQL_select_Query,(str(func.user_id(username)),),)
+
+    menus = cursor.fetchall()
+    if menus == []:
+        return "order tidak ditemukan"
+    else:
+        for row in menus:
+            arr.append({
+                "order_id": str(row[0]),
+                "order_at" : str(row[1]),
+                "status" : func.orderan(row[2]),
+                "total" : str(row[3])
+            })
+
+        return jsonify(arr), 200
+
+
+@app.route('/coffeekiran/get-type', methods=['POST'])
+def type():
+    arr=[]
+
+    A=rq.json
+
+    type=A['tipe']
+
+    connection = connect()
+    cursor = connection.cursor()
+    postgreSQL_select_Query = "SELECT id, name, stock, price, picture FROM menus WHERE type = %s order by id"
+    cursor.execute(postgreSQL_select_Query,(type,),)
+
+    menus = cursor.fetchall()
     if menus == []:
         return "Menu tidak ditemukan"
     else:
         for row in menus:
             arr.append({
-                "menu_id = ": str(row[0]),
-                "nama = ": str(row[1]),
-                "stok = ": str(row[2]),
-                "harga = " : str(row[3])
+                "menu_id": str(row[0]),
+                "nama": str(row[1]),
+                "stok": str(row[2]),
+                "harga" : str(row[3]),
+                "gambar" : str(row[4])
             })
+
+        return jsonify(arr)
+
+        
+@app.route('/coffeekiran/search', methods=['GET'])
+def search_menu():
+    arr = []
+
+    menu = rq.args.get('menu')
+    # logger.debug(menu)
+
+    connection = connect()
+    cursor = connection.cursor()
+    postgreSQL_select_Query = f"SELECT id, name, stock, price, picture FROM menus WHERE stock > 0 and name ILIKE '%{menu}%' order by id"
+
+    cursor.execute(postgreSQL_select_Query)
+    menus = cursor.fetchall()
+    # logger.debug(menus)
+    if menus == []:
+        return "Menu tidak ditemukan",400
+    else:
+        for row in menus:
+            arr.append({
+                "menu_id": str(row[0]),
+                "nama": str(row[1]),
+                "stok": str(row[2]),
+                "harga" : str(row[3]),
+                "gambar" : str(row[4])
+            }), 200
 
         return jsonify(arr)
 
@@ -623,11 +1021,11 @@ def top_order():
     arr = []
     connection3 = connect()
     cursor = connection3.cursor()
-    postgreSQL_select_Query = "select ol.user_id, u.username, count(ol.order_id)\
+    postgreSQL_select_Query = "select ol.user_id, u.name, count(ol.order_id)\
                                 from order_lists as ol\
                                 join users as u\
                                 on ol.user_id = u.id\
-                                group by ol.user_id, u.username\
+                                group by ol.user_id, u.name\
                                 order by count(ol.order_id) desc\
                                 limit 5"
 
@@ -637,9 +1035,9 @@ def top_order():
     user_records = cursor.fetchall()
     for row in user_records:
         arr.append({
-            "user_id = ": str(row[0]),
-            "username = ": str(row[1]),
-            "jumlah_pesanan = ": str(row[2])
+            "user_id": str(row[0]),
+            "nama": str(row[1]),
+            "jumlah_pesanan": str(row[2])
         })
 
     return jsonify(arr)
@@ -650,11 +1048,11 @@ def pop_menu():
     arr = []
     connection3 = connect()
     cursor = connection3.cursor()
-    postgreSQL_select_Query = "select o.menu_id, m.name, count(o.order_id)\
+    postgreSQL_select_Query = "select o.menu_id, m.name, m.picture, count(o.order_id)\
                                 from orders as o\
                                 join menus as m\
                                 on o.menu_id = m.id\
-                                group by o.menu_id, m.name\
+                                group by o.menu_id, m.name, m.picture\
                                 order by count(o.order_id) desc\
                                 limit 5"
 
@@ -662,9 +1060,10 @@ def pop_menu():
     user_records = cursor.fetchall()
     for row in user_records:
         arr.append({
-            "menu_id = ": str(row[0]),
-            "menu_name = ": str(row[1]),
-            "total_pesanan = ": str(row[2])
+            "menu_id": str(row[0]),
+            "menu_name": str(row[1]),
+            "gambar": str(row[2]),
+            "total_pesanan": str(row[3])
         })
 
     return jsonify(arr)
